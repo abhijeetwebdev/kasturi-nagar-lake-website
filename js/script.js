@@ -90,21 +90,118 @@ document.querySelectorAll('.mission-card, .work-card, .stat-card, .timeline-item
     observer.observe(el);
 });
 
-// Form submission handler
-const contactForm = document.querySelector('.contact-form form');
+// Form validation and submission handler
+const contactForm = document.getElementById('contactForm');
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    // Real-time validation for phone number (optional field)
+    const phoneInput = document.getElementById('phone');
+    const phoneError = document.getElementById('phoneError');
+    
+    if (phoneInput) {
+        // Only allow digits
+        phoneInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/\D/g, '');
+            validatePhone();
+        });
+        
+        phoneInput.addEventListener('keypress', function(e) {
+            // Only allow digits
+            if (!/\d/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                e.preventDefault();
+            }
+        });
+    }
+    
+    function validatePhone() {
+        const phoneValue = phoneInput.value.trim();
+        const phonePattern = /^[6-9]\d{9}$/;
+        
+        // Phone is optional, so empty is valid
+        if (phoneValue === '') {
+            phoneError.textContent = '';
+            return true;
+        }
+        
+        // If phone is provided, it must be valid (10 digits starting with 6-9)
+        if (!phonePattern.test(phoneValue)) {
+            if (phoneValue.length < 10) {
+                phoneError.textContent = 'Please enter a complete 10-digit mobile number';
+            } else if (phoneValue.length > 10) {
+                phoneError.textContent = 'Mobile number should be exactly 10 digits';
+            } else if (!/^[6-9]/.test(phoneValue)) {
+                phoneError.textContent = 'Mobile number must start with 6, 7, 8, or 9';
+            } else {
+                phoneError.textContent = 'Please enter a valid mobile number';
+            }
+            return false;
+        }
+        
+        phoneError.textContent = '';
+        return true;
+    }
+    
+    // Form submission
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Get form data
-        const formData = new FormData(contactForm);
+        // Validate phone before submission (only if provided)
+        if (phoneInput && phoneInput.value.trim() !== '' && !validatePhone()) {
+            phoneInput.focus();
+            return;
+        }
         
-        // Here you would typically send the data to a server
-        // For now, we'll just show a success message
-        alert('Thank you for your message! We will get back to you soon.');
+        const formStatus = document.getElementById('formStatus');
+        const submitButton = contactForm.querySelector('button[type="submit"]');
         
-        // Reset form
-        contactForm.reset();
+        // Disable submit button and show loading state
+        submitButton.disabled = true;
+        submitButton.textContent = 'Sending...';
+        
+        try {
+            // Get form data
+            const formData = new FormData(contactForm);
+            
+            // Add +91 prefix to phone number if provided
+            if (phoneInput && phoneInput.value.trim() !== '') {
+                formData.set('phone', '+91 ' + phoneInput.value.trim());
+            }
+            
+            // Submit to Netlify
+            const response = await fetch('/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(formData).toString()
+            });
+            
+            if (response.ok) {
+                // Show success message
+                formStatus.className = 'form-status success';
+                formStatus.textContent = 'Thank you for your message! We will get back to you soon.';
+                
+                // Reset form
+                contactForm.reset();
+                
+                // Clear error messages
+                document.querySelectorAll('.error-message').forEach(error => {
+                    error.textContent = '';
+                });
+            } else {
+                throw new Error('Form submission failed');
+            }
+        } catch (error) {
+            // Show error message
+            formStatus.className = 'form-status error';
+            formStatus.textContent = 'Oops! Something went wrong. Please try again or contact us directly.';
+        } finally {
+            // Re-enable submit button
+            submitButton.disabled = false;
+            submitButton.textContent = 'Send Message';
+            
+            // Hide status message after 5 seconds
+            setTimeout(() => {
+                formStatus.style.display = 'none';
+            }, 5000);
+        }
     });
 }
 
@@ -338,4 +435,37 @@ document.querySelectorAll('.mission-card, .work-card, .stat-card').forEach(card 
 console.log('%c🌊 Kasturi Nagar Lake Rejuvenation Project', 'color: #2c7a7b; font-size: 20px; font-weight: bold;');
 console.log('%cJoin us in our mission to restore and preserve our beautiful lake!', 'color: #38b2ac; font-size: 14px;');
 
+// Initialize Masonry for all category galleries
+function initMasonry() {
+    const galleries = document.querySelectorAll('.category-gallery');
+    
+    galleries.forEach(gallery => {
+        // Wait for images to load before initializing Masonry
+        imagesLoaded(gallery, function() {
+            new Masonry(gallery, {
+                itemSelector: '.gallery-item',
+                columnWidth: '.gallery-item',
+                percentPosition: true,
+                gutter: 20
+            });
+        });
+    });
+}
+
+// Initialize Masonry when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMasonry);
+} else {
+    initMasonry();
+}
+
+// Re-initialize Masonry when switching tabs in the work section
+tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        // Wait for tab content to be visible before initializing
+        setTimeout(() => {
+            initMasonry();
+        }, 100);
+    });
+});
 // Made with Bob
